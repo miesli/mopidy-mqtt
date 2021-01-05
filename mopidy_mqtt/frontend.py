@@ -23,7 +23,7 @@ class MQTTFrontend(pykka.ThreadingActor, core.CoreListener):
         self.mqttClient = mqtt.Client(client_id="mopidy-" + str(int(round(time.time() * 1000))), clean_session=True)
         self.mqttClient.on_message = self.mqtt_on_message
         self.mqttClient.on_connect = self.mqtt_on_connect
-        
+
         self.config = config['mqtthook']
         host = self.config['mqtthost']
         port = self.config['mqttport']
@@ -35,19 +35,19 @@ class MQTTFrontend(pykka.ThreadingActor, core.CoreListener):
             self.mqttClient.tls_set()
         if self.config['username'] and self.config['password']:
             self.mqttClient.username_pw_set(self.config['username'], password=self.config['password'])
-        self.mqttClient.connect_async(host, port, 60)        
-        
+        self.mqttClient.connect_async(host, port, 60)
+
         self.mqttClient.loop_start()
         super(MQTTFrontend, self).__init__()
         self.MQTTHook = MQTTHook(self, core, config, self.mqttClient)
-        
+
     def mqtt_on_connect(self, client, userdata, flags, rc):
         logger.info("Connected with result code %s" % rc)
-        for sub in ["/play","/control","/volume","/info","/search"]:
+        for sub in ["/play","/play_radio", "/control","/volume","/info","/search"]:
             rc = self.mqttClient.subscribe(self.topic+sub)
             if rc[0] != mqtt.MQTT_ERR_SUCCESS:
                 logger.warn("Error during subscribe: " + str(rc[0]))
-            else:              
+            else:
                 logger.info("Subscribed to " + self.topic + sub)
 
     def mqtt_on_message(self, mqttc, obj, msg):
@@ -58,10 +58,15 @@ class MQTTFrontend(pykka.ThreadingActor, core.CoreListener):
         topVolume = self.topic + "/volume"
         topInfo = self.topic + "/info"
         topSearch = self.topic + "/search"
+        topPlayRadio = self.topic + "/play_radio"
 
         if msg.topic == topPlay:
             self.core.tracklist.clear()
             self.core.tracklist.add(uris=[payload])
+            self.core.playback.play()
+        elif msg.topic == topPlayRadio:
+            self.core.tracklist.clear()
+            self.core.tracklist.add(uris=['radionet:station_play:' + payload])
             self.core.playback.play()
         elif msg.topic == topControl:
             if payload == "stop":
@@ -105,7 +110,7 @@ class MQTTFrontend(pykka.ThreadingActor, core.CoreListener):
             res=self.core.library.search({'any': [search]},uris=['local:']).get()
             found=(len(res[0].tracks))
             logger.info("Adding %d tunes from %s"%(found,search))
-            
+
             if (found>0):
                 self.core.tracklist.clear()
                 self.core.tracklist.add(tracks=res[0].tracks)
@@ -117,7 +122,7 @@ class MQTTFrontend(pykka.ThreadingActor, core.CoreListener):
     def on_stop(self):
         logger.info("mopidy_mqtt shutting down ... ")
         self.mqttClient.disconnect()
-        
+
     def stream_title_changed(self, title):
         logger.info("before" + title)
         titleStripped = title.rstrip('.mp3')
@@ -129,8 +134,8 @@ class MQTTFrontend(pykka.ThreadingActor, core.CoreListener):
         if (new_state == "stopped"):
             self.MQTTHook.publish("/nowplaying", "stopped")
             self.MQTTHook.publish("/image", self.stoppedImage)
-            
-        
+
+
     def track_playback_started(self, tl_track):
         track = tl_track.track
         artists="unknown"
@@ -147,17 +152,17 @@ class MQTTFrontend(pykka.ThreadingActor, core.CoreListener):
           self.MQTTHook.publish("/image", imageUri[0].uri)
         else:
           self.MQTTHook.publish("/image", self.defaultImage)
-        
+
 class MQTTHook():
     def __init__(self, frontend, core, config, client):
-        self.config = config['mqtthook']        
+        self.config = config['mqtthook']
         self.mqttclient = client
-       
+
     def publish(self, topic, state):
         full_topic = self.config['topic'] + topic
         try:
             rc = self.mqttclient.publish(full_topic, state)
-            if rc[0] == mqtt.MQTT_ERR_NO_CONN:            
+            if rc[0] == mqtt.MQTT_ERR_NO_CONN:
                 logger.warn("Error during publish: MQTT_ERR_NO_CONN")
             else:
                 logger.info("Sent " + state + " to " + full_topic)
