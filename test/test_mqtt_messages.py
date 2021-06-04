@@ -30,7 +30,7 @@ def test_radionet_link():
 
     url = "https://stream.rockantenne.hamburg/rockantenne-hamburg/stream/mp3?aw_0_1st.playerid=radio.de"
 
-    client.publish("home/livingroom/music/play", url)
+    client.publish("home/kitchen/music/play", url)
     client.disconnect()
 
 def test_radionet_favorite():
@@ -41,7 +41,7 @@ def test_radionet_favorite():
 
     station = "Rock Antenne"
 
-    client.publish("home/livingroom/music/play_radio", station)
+    client.publish("home/kitchen/music/play_radio", station)
     client.disconnect()
 
 if __name__ == "__main__":

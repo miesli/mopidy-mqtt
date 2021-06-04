@@ -52,7 +52,7 @@ class MQTTFrontend(pykka.ThreadingActor, core.CoreListener):
 
     def mqtt_on_message(self, mqttc, obj, msg):
         payload = msg.payload.decode()
-        logger.info("received a message on " + msg.topic+" with payload " + payload)
+        logger.info("received a message on " + msg.topic + " with payload " + payload)
         topPlay = self.topic + "/play"
         topControl = self.topic + "/control"
         topVolume = self.topic + "/volume"
